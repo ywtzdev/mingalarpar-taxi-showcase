@@ -1,7 +1,7 @@
 # Mingalarpar Taxi: Multi-Role Ride-Hailing App, Engineering Case Study
 
 > A ride-hailing app in production for customers, drivers and staff, with vehicle classes, an SOS channel, a coin rewards economy and automatic order recovery.
-> Its backend architecture is **callme-core**, the self-hosted platform designed for [Call Me Taxi](https://github.com/ywtzdev/callme-taxi-showcase), extended with Mingalarpar's own product rules.
+> Its new backend is **callme-core**, the self-hosted platform designed for [Call Me Taxi](https://github.com/ywtzdev/callme-taxi-showcase), extended with Mingalarpar's own product rules. It runs on its own server against copies of production data and is being prepared for cutover.
 
 ![Kotlin](https://img.shields.io/badge/Android-Kotlin%20%7C%20Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Platform-Node.js%2022%20%7C%20Fastify-339933?logo=node.js&logoColor=white)
@@ -20,6 +20,7 @@ This repository is the **public case study** of the project: product scope, arch
 | Android app | about 330 Kotlin files, Jetpack Compose, 2 languages, 3 role families (customer, driver, staff) |
 | Server rules | 9 server-side services: business actions (~115), settlement, push, alerts, dispatch control, order expiry (scheduler, worker, watchdog), top-up guard |
 | Platform | callme-core: Node.js, PostgreSQL 16, WebSocket realtime, durable job queue, one 4 vCPU / 8 GB VPS per product |
+| Verification | 83 backend tests on real PostgreSQL; a **42-check end-to-end run from the customer's point of view** (register → approval → fare → booking → nearest driver → accept → tracking → cancel fees → SOS → delete → re-register); 200-driver load test with 0 errors |
 
 ---
 
@@ -72,6 +73,16 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   - fail2ban, which banned its first brute-force IP within seconds;
   - secrets entered only through hidden prompts and stored root-only;
   - read-only, least-privilege export keys.
+
+## November 2026: what the customer-side audit changed
+
+A scripted run through everything a customer can do found rules that did not match the owner's intent, and each was fixed and re-verified:
+
+- **SOS** was refused until the car had moved 100 m; it now works from the moment a driver has accepted and lands in the staff support chat.
+- **Delete** now really deletes (it used to archive), so the phone number can be used again, while a permanent ban survives deletion. Deleted User IDs are never reused, so a new customer can never inherit someone else's rides or wallet ledger.
+- **One live account per phone**, recognised in any format, for customers and drivers alike.
+- **The newest sign-in wins**: signing in on a new phone signs the old one out instead of locking the account.
+- **The terms screen** no longer needed a manual refresh before "Accept" unlocked (a cancelled duplicate load overwrote the fresh one).
 
 ---
 
