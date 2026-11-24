@@ -20,7 +20,7 @@ This repository is the **public case study** of the project: product scope, arch
 | Users and data (Nov 2026) | 738 accounts, 703 driver profiles, 6,365 orders, 3,505 trips, 233,044 records in 39 collections, 879 media files |
 | Android app | about 330 Kotlin files, Jetpack Compose, 2 languages, 3 role families (customer, driver, staff) |
 | Server rules | 9 server-side services: business actions (~115), settlement, push, alerts, dispatch control, order expiry (scheduler, worker, watchdog), top-up guard |
-| Platform | callme-core: Node.js 22, PostgreSQL 16 + PostGIS, WebSocket realtime, durable job queue, 66 shared backend modules enforced byte-identical with the sister product, one dedicated VPS per product |
+| Platform | callme-core: Node.js 22, PostgreSQL 16 + PostGIS, WebSocket realtime, durable job queue, 66 shared backend modules enforced byte-identical with the sister product; its own 4 vCPU / 8 GB VPS (Call Me, with more users, runs on 6 vCPU / 12 GB) |
 | Verification | 241 Android unit tests; 83+ backend tests on real PostgreSQL; **42-check customer POV end-to-end suite** (register → approval → fare → booking → nearest driver → accept → tracking → cancel fees → SOS → delete → re-register); **80-order continuous FCM/realtime audit** (0 failed, 0 suppressed, 0 dead jobs); 200-driver load test with 0 errors |
 
 ---
@@ -98,13 +98,13 @@ A scripted run through everything a customer can do found rules that did not mat
 
 ---
 
-## Late November 2026: push reliability, live admin escalation & cross-company distance dispatch
+## Late November 2026: push reliability, staff in trip chats, distance transfers
 
-- **80-order continuous push & realtime audit.** Audited 40 app orders and 40 customer bookings end-to-end (offer, accept, private chat, cancel, complete) against an isolated scratch stack with a push capture sink. Found and fixed production push issues including instant recipient-cache version invalidation on fresh login, sequential-offer expiry timestamps (`offerExpiresAt`), chat message type propagation, pending cancel/freeze bystander popup dismissal, and atomic cross-account `fcmToken` ownership — post-fix audit: **0 failed pushes, 0 worker errors, 0 suppressed recipients**.
-- **One-tap live Admin escalation in Private Chat.** Drivers and customers can tap *Connect with Admin* inside any active trip chat. Super Admin, Admin, and Monitor receive an FCM alert, a Notification Center entry, and a live **Support Chat** escalation inbox backed by an active-trip join — staff can participate live in both local and transferred trip chats, and escalations clear automatically as soon as the trip completes or cancels.
-- **Cross-company Distance Order transfer.** Distance orders transferred between Mingalarpar and Call Me now carry pickup coordinates and execute under **the receiving company's own** distance ring rules (`D1–D7` with open-order continuation guards and vehicle-class normalization on Mingalarpar), while cleanly dismissing stale offers on the originating side.
-- **Universal cancellation finance & arrival lock.** Unified order cancellation settlement (*No Fee*, *2,000 Ks driver compensation*, *commission deduction*) with a dedicated transfer penalty ledger and server-enforced arrival/departure locks.
-- **Edge mTLS, Notification Bell audit & Compose smoothness.** Hardened Caddy with **Cloudflare Authenticated Origin Pulls (mTLS)** and IPv6 origin firewalling; fixed Notification Bell cold-start deep links, phantom unread badges, and `chat_bell` TTL/sound/brand parity; refined Jetpack Compose media decoding and recomposition responsiveness (241 Android unit tests passing).
+- **An 80-order push audit.** 40 app orders and 40 customer bookings went through offer, accept, chat, cancel and complete on an isolated scratch stack, with every push captured instead of sent. The fixes it led to: the recipient cache is refreshed the moment someone signs in, one-driver-at-a-time offers carry their real expiry time, chat pushes keep their message type, popups close on other phones when an order is cancelled or frozen, and a phone's push token belongs to one account at a time. The rerun had 0 failed pushes, 0 worker errors and 0 suppressed recipients.
+- **Staff can join a trip chat.** A driver or customer taps *Connect with Admin* in the trip chat. Super Admin, Admin and Monitor get a push and a list of open requests and can reply inside the chat, also for trips handed over from Call Me. The request closes when the trip ends.
+- **Distance orders can move between companies.** A transferred distance order carries its pickup point and runs under the receiving company's rules: on Mingalarpar that means its D1–D7 rings and its vehicle classes. The sending company clears the popups its drivers still had open.
+- **One cancellation rule for every order.** After a driver is found, a cancel is either free, pays the driver 2,000 Ks, or deducts the commission. Transfer penalties have their own ledger, and the server locks the choice once the driver has arrived or set off.
+- **Smaller fixes.** The server accepts web traffic only from Cloudflare, checked with mutual TLS on IPv4 and IPv6. In the app, tapping a notification on a cold start now opens the right screen, unread badges no longer show phantom counts, the chat bell behaves the same as on Call Me, and media is decoded off the main thread. 241 Android unit tests pass.
 
 ---
 
